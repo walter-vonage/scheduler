@@ -44,7 +44,7 @@ You will have a public URL where this NodeJS project is running.
 ## Using the app
 POST to `/scheduler` with {"command": "start", "maxInvocations": number}
 
-This will start a cron job that runs every minute for 3 minutes (this is for testing purposes and needs to be changed for production)
+This will start a cron job that runs from Monday to Saturday from 6am to 8pm. It will run 2 times every hour (at minute 15 and minute 45)
 
 This scheduler will call the `/checkandsend`endpoint which will check if there are csv files that need to be processed. If there are files that need to be processed, the file will be read, SMS sent and a new CSV file will be created on `/output` directory containing the results of the SMS sending.
 
