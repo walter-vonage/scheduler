@@ -17,8 +17,7 @@ When a CSV file is uploaded, a cron job processes its content and sends SMS or R
 2. Run `vcr configure` where you will be asked to set a Vonage apikey and secret.
 3. Create a `vcr.yml` file as per `vcr-sample.yml`
 
-## Run the project
-
+## Run the project
 You will deploy this code in VCR. You can run in **debug** or **prod** mode. 
 
 ```
