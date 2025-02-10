@@ -33,17 +33,16 @@ Init VCR with this information:
 vcr init
 ```
 
-### NOTES
+### NOTES
 Inside your ```vcr.yml``` file, check that application-id is the one you want to use.
 ```runtime: nodejs16``` is the NodeJS version you are using.
 
-### Deploy
+### Deploy
 Finally, run ```vcr debug``` to send all the informaiton to VCR. 
 This will let you inspect the console and check for errors locally.
 You will have a public URL where this NodeJS project is running.
 
-## Using the app
-
+## Using the app
 POST to `/scheduler` with {"command": "start", "maxInvocations": number}
 
 This will start a cron job that runs every minute for 3 minutes (this is for testing purposes and needs to be changed for production)
