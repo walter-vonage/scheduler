@@ -73,3 +73,4 @@ Send a ```POST``` request to ```/api/messages/send/``` with the following body:
 The application retrieves the template ID from the payload and sends a message via SMS or RCS, depending on the specified ```channel```. 
 The ```data``` object contains key-value pairs used to populate placeholders within the template.
 
+The values in this payload override the template type. If the template specifies SMS but the payload defines RCS, an RCS message will be sent.
