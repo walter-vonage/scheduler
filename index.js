@@ -17,6 +17,11 @@ const utils = require('./utils');
 const initializePassport = require('./passport-strategy');
 const { default: axios } = require('axios');
 const blackListService = require('./services/blacklist');
+const { v4: uuidv4 } = require('uuid');
+const path = require('path');
+
+// Serve static files from the 'public' directory
+app.use(express.static(path.join(__dirname, 'public')));
 
 /**
  * Neru / VCR
@@ -93,6 +98,45 @@ initializePassport(
 );
 
 /**
+ * Show root page
+ */
+app.get('/', utils.checkNotAuthenticated, async (req, res) => {
+    const users = await utils.getUsers(globalState);
+    if (users && Array.isArray(users) && users.length == 0) {
+        //  Create first user
+        res.render('templates/users-new', {});
+    } else {
+        //  Check if logged in
+        res.redirect('/login');
+    }
+});
+
+/**
+ * Allows an authorised user to create 
+ * Authorisation Tokens for sending requests via Postman
+ */
+app.get('/tokens', utils.checkNotAuthenticated, async (req, res) => {
+    res.render('templates/tokens-new', {});
+})
+
+/**
+ * Stores an Authorisation Token for sending requests via Postman.
+ * For creating a record you need to send your user password
+ */
+app.post('/admin/tokens', async (req, res) => {
+    const fn = require('./actions/admin_auth_token_create');
+    fn.action(req, res, globalState);
+})
+
+app.get('/admin/tokens/validate', async (req, res) => {
+    const valid = await utils.validateAuthTokenFromRequest(globalState, req);
+    console.log( 'Is valid: ' + valid )
+    res.status(200).json({
+        valid
+    })
+})
+
+/**
  * Removes a number from the black list
  */
 app.use('/whitelist', whitelistRouter());
@@ -127,13 +171,6 @@ app.get('/keepalive', (req, res) => {
  */
 app.get('/login', utils.checkNotAuthenticated, (req, res) => {
     res.render('templates/login', {});
-});
-
-/**
- * Show root page
- */
-app.get('/', utils.checkNotAuthenticated, (req, res) => {
-    res.redirect('/login');
 });
 
 /**
@@ -178,6 +215,12 @@ app.get('/templates/new', utils.checkAuthenticated, async (req, res) => {
  * Get a list of all templates
  */
 app.get('/api/templates', async (req, res) => {
+    const validtoken = await utils.validateAuthTokenFromRequest(globalState, req);
+    if (!validtoken) {
+        return res.status(401).json({
+            message: 'Invalid token'
+        })
+    }
     const templates = await globalState.hgetall(TEMPLATES_TABLENAME);
     const parsedTemplates = Object.keys(templates).map((key) => {
         const data = JSON.parse(templates[key]);
@@ -199,6 +242,12 @@ app.get('/support', async (req, res) => {
  * Check if any given phone number supports RCS
  */
 app.get('/support/:phone', async (req, res) => {
+    const validtoken = await utils.validateAuthTokenFromRequest(globalState, req);
+    if (!validtoken) {
+        return res.status(401).json({
+            message: 'Invalid token'
+        })
+    }
     const phone = req.params.phone;
     const isRcsSupported = await utils.checkRCS( phone );
     console.log(isRcsSupported);
@@ -209,6 +258,12 @@ app.get('/support/:phone', async (req, res) => {
  * Get a single temaplte by id
  */
 app.get('/api/templates/:id', async (req, res) => {
+    const validtoken = await utils.validateAuthTokenFromRequest(globalState, req);
+    if (!validtoken) {
+        return res.status(401).json({
+            message: 'Invalid token'
+        })
+    }
     const { id } = req.params;
     if (!id) {
         return res.status(404).json({ success: false, error: 'please provide a valid id' });
@@ -221,7 +276,7 @@ app.get('/api/templates/:id', async (req, res) => {
 /**
  * Create a new template
  */
-app.post('/api/templates', async (req, res) => {
+app.post('/api/templates', utils.checkAuthenticated, async (req, res) => {
     const { id, text, senderIdField, rcsEnabled } = req.body;
     let newTemplate;
     const updatedAt = new Date().toISOString();
@@ -255,7 +310,7 @@ app.post('/api/templates', async (req, res) => {
 /**
  * Delete a template by ID
  */
-app.delete('/api/templates/:id', async (req, res) => {
+app.delete('/api/templates/:id', utils.checkAuthenticated, async (req, res) => {
     const { id } = req.params;
     if (!id) {
         return res.status(404).json({ success: false, error: 'please provide a valid id' });
@@ -276,7 +331,7 @@ app.post('/keepalivepinger', async (req, res) => {
  * Black list of numbers 
  * This is used when a user does not want to receive more messages
  */
-app.post('/inbound', async (req, res) => {
+app.post('/inbound', utils.checkAuthenticated, async (req, res) => {
     try {
         if (req.body && req.body.from && req.body.text) {
             const number = req.body.from;
@@ -313,6 +368,13 @@ app.post('/inbound', async (req, res) => {
  * for when it should run.
  */
 app.post('/scheduler', async (req, res) => {
+    const validtoken = await utils.validateAuthTokenFromRequest(globalState, req);
+    if (!validtoken) {
+        return res.status(401).json({
+            message: 'Invalid token'
+        })
+    }
+
     const { command, maxInvocations } = req.body;
     const session = neru.createSession();
     const scheduler = new Scheduler(session);
@@ -543,8 +605,10 @@ app.post('/checkandsend', async (req, res) => {
 });
 
 /**
- * Create a user 
- * This is for Admin access
+ * Create a user for the first time.
+ * NO NEED TO ADD AUTHENTICATION AT THIS POINT
+ * It will create a user ONLY if the Users 
+ * table does not exist.
  */
 app.post('/admin/users/create', async (req, res) => {
     const fn = require('./actions/admin_create_user');
@@ -556,6 +620,12 @@ app.post('/admin/users/create', async (req, res) => {
  * This is for Admin access
  */
 app.get('/admin/users', async (req, res) => {
+    const validtoken = await utils.validateAuthTokenFromRequest(globalState, req);
+    if (!validtoken) {
+        return res.status(401).json({
+            message: 'Invalid token'
+        })
+    }
     const fn = require('./actions/admin_get_users');
     fn.action(req, res, globalState);
 })
@@ -564,7 +634,7 @@ app.get('/admin/users', async (req, res) => {
  * Create a temporary scheduler (delete any current running one)
  * This is for Admin access
  */
-app.post('/admin/scheduler', async (req, res) => {
+app.post('/admin/scheduler', utils.checkAuthenticated, async (req, res) => {
     const fn = require('./actions/admin_create_test_scheduler');
     fn.action(req, res);
 })
@@ -574,6 +644,12 @@ app.post('/admin/scheduler', async (req, res) => {
  * This is for Admin access
  */
 app.get('/admin/templates', async (req, res) => {
+    const validtoken = await utils.validateAuthTokenFromRequest(globalState, req);
+    if (!validtoken) {
+        return res.status(401).json({
+            message: 'Invalid token'
+        })
+    }
     const fn = require('./actions/admin_get_templates');
     fn.action(req, res, globalState);
 })
@@ -583,6 +659,12 @@ app.get('/admin/templates', async (req, res) => {
  * This is for customer use.
  */
 app.post('/api/messages/send', async (req, res) => {
+    const validtoken = await utils.validateAuthTokenFromRequest(globalState, req);
+    if (!validtoken) {
+        return res.status(401).json({
+            message: 'Invalid token'
+        })
+    }
     const fn = require('./actions/api_messages_send');
     fn.action(req, res, globalState);
 })

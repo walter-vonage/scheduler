@@ -86,9 +86,7 @@ async function action(req, res, globalState) {
         const result = await sms.sendSmsOrRcsLight(from, to, text, useRcs);
 
         console.log('Message sent', result)
-        res.status(200).json({
-            message: 'Message sent'
-        })
+        res.status(200).json(result)
 
     } catch(ex) {
         console.log(ex)

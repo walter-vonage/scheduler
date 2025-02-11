@@ -7,6 +7,114 @@ const constants = require('./constants');
 const privateKey = process.env.VCR_PRIVATE_KEY;
 const applicationId = process.env.VCR_API_APPLICATION_ID;
 const rcsAgent = 'EOS';
+const { v4: uuidv4 } = require('uuid');
+
+const getUsers = async (globalState) => {
+    try {
+        const users = await globalState.hvals('users');
+        return users;
+    } catch (ex) {
+        console.log('validateTokenBasedOnPassword', ex)
+        return [];
+    }
+}
+
+/**
+ * Based on the first password (stored in DB)
+ * We generate tokens.
+ */
+const getTokenBasedOnPassword = async () => {
+    try {
+
+    } catch (ex) {
+        console.log('getTokenBasedOnPassword', ex)
+        return null;
+    }
+}
+
+/**
+ * For Postman requests you need to send an Authorisation Token.
+ * This function will validate if the token exists or not.
+ */
+const validateAuthTokenFromRequest = async (globalState, req) => {
+    try {
+        const authHeader = req.headers['authorization'];
+        let token;
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+            token = authHeader.split(' ')[1]; // Extract the token after 'Bearer '
+        } else {
+            token = null;
+        }
+        const value = await validateAuthToken(globalState, token)
+        return value;
+    } catch (ex) {
+        console.log('validateAuthToken', ex)
+        return false;
+    }
+}
+const validateAuthToken = async (globalState, token) => {
+    try {
+        const storedToken = await await globalState.hvals('authTokens');
+        console.log(storedToken)
+        for (let item of storedToken) {
+            const value = JSON.parse(item)
+            if (value.token == token) {
+                return true;
+            }
+        }
+        return false;
+    } catch (ex) {
+        console.log('validateAuthToken', ex)
+        return false;
+    }
+}
+
+
+const createAuthorisationToken = async (globalState, password) => {
+    try {
+        if (!password) {
+            console.log('createAuthorisationToken - no passowrd sent');
+            return null;
+        }
+
+        const users = await getUsers(globalState)
+        console.log(users)
+        if (!users) {
+            console.log('createAuthorisationToken - no users found');
+            return null;
+        }
+
+        let passwordFound = false;
+        for (let item of users) {
+            const u = JSON.parse(item)
+            if (u.password == password) {
+                passwordFound = true;
+                break;
+            }
+        }
+
+        if (!passwordFound) {
+            console.log('createAuthorisationToken - Invalid passowrd sent');
+            return null;
+        }
+
+        const token = uuidv4();
+
+        await globalState.hset('authTokens', {
+            [password]: JSON.stringify({
+                token,
+            }),
+        })
+
+        return token;
+
+    } catch (ex) {
+        console.log('createAuthorisationToken', ex)
+        return null;
+    }
+}
+
+
 
 const getTemplateById = async (templateId, globalState) => {
     try {
@@ -20,7 +128,7 @@ const getTemplateById = async (templateId, globalState) => {
         const template = parsedTemplates.find((template) => template.id == templateId);
         console.log('Template found', template)
         return template;
-    } catch(ex) {
+    } catch (ex) {
         console.log('getTemplateById', ex)
         return null;
     }
@@ -106,7 +214,6 @@ const checkAuthenticated = (req, res, next) => {
     if (req.isAuthenticated()) {
         return next();
     }
-
     res.redirect('/login');
 };
 
@@ -129,4 +236,7 @@ module.exports = {
     generateToken,
     rcsAgent,
     getTemplateById,
+    getUsers,
+    createAuthorisationToken,
+    validateAuthTokenFromRequest,
 };

@@ -11,6 +11,8 @@
  *      "name": string,
  * }
  */
+const { v4: uuidv4 } = require('uuid');
+const utils = require('../utils')
 
 async function action(req, res, globalState) {
     try {
@@ -19,6 +21,14 @@ async function action(req, res, globalState) {
         if (!email || !password || !name) {
             console.log('Invalid input', req.body);
             returnInvalidInput(res);
+            return;
+        }
+
+        const users = await utils.getUsers(globalState)
+        console.log(users)
+        if (users && Array.isArray(users) && users.length > 0) {
+            console.log('There is already a user created');
+            returnInvalidAction(res);
             return;
         }
 
@@ -52,6 +62,12 @@ function returnInvalidInput(res) {
             "name": string,
         }
         `
+    })
+}
+
+function returnInvalidAction(res) {
+    res.status(400).json({
+        message: `Invalid action`
     })
 }
 
