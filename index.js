@@ -27,28 +27,7 @@ app.use(express.static(path.join(__dirname, 'public')));
  * Neru / VCR
  */
 const session = neru.getGlobalSession();
-const globalState = new State(session);
-const messaging = new Messages(session);
-
-/**
- * Listens for numbers to be added to the black list 
- * so no messages will be sent.
- * 
- * TODO: Move to a different repository
- */
-const listenMessages = async () => {
-    await messaging
-        .listenMessages(
-            { type: null, number: null },
-            {
-                type: 'rcs',
-                number: null,
-            },
-            '/inbound'
-        )
-        .execute();
-};
-listenMessages();
+const globalState = new State(session);  // In debug this loses the data. Deploy is fine. Make sure your vcr.yml file contains "preserve-data: true" for debug
 
 /**
  * Table name where templates are stored
@@ -248,45 +227,25 @@ app.get('/api/templates', async (req, res) => {
 });
 
 /**
- * Check if phone "491743306799" supports RCS
- */
-app.get('/support', async (req, res) => {
-    const isRcsSupported = await utils.checkRCS('491743306799');
-    console.log(isRcsSupported);
-    res.send('okay');
-});
-
-/**
  * Check if any given phone number supports RCS
  */
-app.get('/support/:phone', async (req, res) => {
-    const validtoken = await utils.validateAuthTokenFromRequest(globalState, req);
-    if (!validtoken) {
-        return res.status(401).json({
-            message: 'Invalid token'
-        })
-    }
+app.get('/support/:phone/:senderId', async (req, res) => {
     const phone = req.params.phone;
-    const isRcsSupported = await utils.checkRCS( phone );
-    console.log(isRcsSupported);
-    res.send('okay');
-});
-
-/**
- * Check if any given phone number supports RCS
- * Open endpoint for test only
- * TODO: REMOVE THIS ENDPOINT FOR PRODUCTION
- */
-app.get('/rcs/validate', async (req, res) => {
-    const phone = req.query.phone; // Get the value from the query string
-    if (!phone) {
-        return res.status(400).json({ error: "Phone number is required" });
+    const senderId = req.params.senderId;
+    if( phone && senderId) {
+        const validtoken = await utils.validateAuthTokenFromRequest(globalState, req);
+        if (!validtoken) {
+            return res.status(401).json({
+                message: 'Invalid token'
+            })
+        }
+        const isRcsSupported = await utils.checkRCS( senderId, phone );
+        console.log(isRcsSupported);
+        res.send('okay');
+    } else {
+        res.send('Call /support/<PHONE>/<RCS Agent Id>');
     }
-    console.log('Phone: ' + phone);
-    const isRcsSupported = await utils.checkRCS( phone );
-    console.log(isRcsSupported);
-    res.send('okay');
-});
+})
 
 /**
  * Get a single temaplte by id
@@ -399,32 +358,6 @@ app.post('/keepalivepinger', async (req, res) => {
     const resp = await keepAlive.deleteKeepAlive();
     res.send(resp);
 });
-
-/**
- * Black list of numbers 
- * This is used when a user does not want to receive more messages
- */
-app.post('/inbound', utils.checkAuthenticated, async (req, res) => {
-    try {
-        if (req.body && req.body.from && req.body.text) {
-            const number = req.body.from;
-            const text = req.body.text;
-            if (text.toUpperCase() === 'STOP') {
-                const response = await blackListService.blacklist(number);
-                const resultOptOut = await smsService.sendOptOutRcs(utils.rcsAgent, number);
-                console.log(resultOptOut);
-            }
-            console.log('message received', req.body);
-            res.sendStatus(200);
-        } else {
-            res.sendStatus(500);
-        }
-    } catch (e) {
-        console.log(e);
-        res.sendStatus(500);
-    }
-});
-
 
 // End of template APIs
 

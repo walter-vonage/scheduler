@@ -111,9 +111,9 @@ const sendSmsOrRcs = async (senderNumber, to, text, apiUrl, campaignName, csvNam
     };
 
     if (rcsTemplate) {
-        const isRcsSupported = await utils.checkRCS(to);
+        const isRcsSupported = await utils.checkRCS( from, to );
+        console.log('sendSmsOrRcs - isRcsSupported', isRcsSupported)
         channel = isRcsSupported ? 'rcs' : 'sms';
-        from = isRcsSupported ? utils.rcsAgent : from;
     }
 
     const body = {

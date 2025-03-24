@@ -1,3 +1,26 @@
+1) Update uils.js to use the environment varialbes
+https://developer.vonage.com/en/vonage-cloud-runtime/getting-started/deploying#injected-environment-variables
+
+VCR_PORT
+VCR_REGION
+VCR_DEBUG
+VCR_CODE_DIR
+VCR_REGION_ID
+VCR_PRIVATE_KEY
+VCR_API_REGION_ID
+VCR_API_ACCOUNT_ID
+VCR_API_ACCOUNT_SECRET
+VCR_API_APPLICATION_ID
+VCR_INSTANCE_PUBLIC_URL
+VCR_INSTANCE_SERVICE_NAME
+
+for example: const port = process.env.VCR_PORT;
+
+FOR THIS WEEK, SEND VIBE TEXT
+
+ESTIMATE: send images with vibe
+
+
 1) Move RCS agent outside (to the JSON payload or check how to configure via Postman)
 https://github.com/walter-vonage/scheduler/blob/main/utils.js#L9
 
