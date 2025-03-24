@@ -70,11 +70,18 @@ async function action(req, res, globalState) {
 
         let text = template.text;
         const record = data[0]; // We use the first element of the array for all the key:value
-        const regexp = /\{\{\s?([\w\d]+)\s?\}\}/g;
-        const matchArrays = [...text.matchAll(regexp)];            
+        //  Replace {{PLACEHOLDER}}
+        let regexp = /\{\{\s?([\w\d]+)\s?\}\}/g;
+        let matchArrays = [...text.matchAll(regexp)];            
         matchArrays.forEach((array) => {
             text = text.replaceAll(array[0], record[array[1]] || ""); // Replace with value or empty string if undefined
         });        
+        //  Replace %%PLACEHOLDER%%
+        regexp = /%%([\w\d]+)%%/g;
+        matchArrays = [...text.matchAll(regexp)];            
+        matchArrays.forEach((array) => {
+            text = text.replaceAll(array[0], record[array[1]] || ""); // Replace with value or empty string if undefined
+        });
 
         const templateIsRcs = template.rcsEnabled;
         const forceRcs = (channel == 'rcs') ? true : false;

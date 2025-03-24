@@ -55,10 +55,20 @@ const sendMessage = async (record, csvName, globalState) => {
         const senderNumber = `${record[`${template?.senderIdField}`]?.replaceAll('+', '')}`;
         const to = `${record[CSV_PHONE_NUMBER_COLUMN_NAME]?.replaceAll('+', '')}`;
         const client_ref = record[CSV_ID_COLUMN_NAME];
-        const regexp = /\{\{\s?([\w\d]+)\s?\}\}/g;
+
+        const regexpCurly = /\{\{\s?([\w\d]+)\s?\}\}/g;
+        const regexpDoublePercent = /%%([\w\d]+)%%/g;
+
         if (text) {
-            const matchArrays = [...text.matchAll(regexp)];
+            //  Replace all {{PLACEHOLDER}}
+            const matchArrays = [...text.matchAll(regexpCurly)];
             matchArrays.forEach((array) => {
+                text = text.replaceAll(array[0], record[`${array[1]}`]);
+            });
+
+            //  Replace all %%PLACEHOLDER%%
+            const matchArraysDoublePercent = [...text.matchAll(regexpDoublePercent)];
+            matchArraysDoublePercent.forEach((array) => {
                 text = text.replaceAll(array[0], record[`${array[1]}`]);
             });
         }
