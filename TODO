@@ -1,0 +1,6 @@
+1) Move RCS agent outside (to the JSON payload or check how to configure via Postman)
+https://github.com/walter-vonage/scheduler/blob/main/utils.js#L9
+
+2) Add logout
+
+

@@ -4,9 +4,37 @@ const checkSenderIdValid = (senderId) => /^[a-zA-Z0-9]*$/gm.test(senderId);
 const { tokenGenerate } = require('@vonage/jwt');
 const fetch = require('node-fetch');
 const constants = require('./constants');
-const privateKey = process.env.VCR_PRIVATE_KEY;
-const applicationId = process.env.VCR_API_APPLICATION_ID;
-const rcsAgent = 'EOS';
+const privateKey = `-----BEGIN PRIVATE KEY-----
+MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC2k8VMI3hdl8Iz
+ey84Hrp5wSwTVF7oH0ArheTZbDWswLhtbbbEH/NM7tyRWV+7RF0O7QdobLSTxPsW
+R9veKBUYVh5SKW8MmCQGktFuFY9fAGrdRQUfWPww+7t1ffeYn61GdTqj20fpJcAm
+RSpYG4FvElUYntvKLLU+c5VjwvK1TrFslTL+m6+zbRt6lCbNldSTGwC/bx/uhQLf
+tayL1yr5BdaPW7kJ8aME009Ta8tT1cpJJmL48HDhqh91mKJeW8c/yF3SX159vJ0D
+AJkmqygZ6VjukWCoYdnbSVhBelyZ1YQ7QC6FWX6XotbraAW4pSeS4wecx8AyyrU+
+qQLblkjbAgMBAAECggEAF4Wg4kGiR5HpB9o+Unadrliq0Fq1rNDJ4vw/EvE+q7Zb
+Nw3u1q8Jw3Gf98HnSX3HQh2w2ffsqSpe8Zc/G7dXmxO37ac/kq8khQxJRcDVVcyn
+TUE6ew1rKvcORwF8SAIvwBITr09C9ntR7sbzwPeE4hsfMirVRON5qPAZ4QkZXS5B
+QPKLHX3iZatehIFb42O1BencCZUT4geNWzb6qsdr6ebnWQQ29JFrVDT+QU2TvVZm
+a+/rPu6yd9LcxYED8VEUE6gYiO5WkJv318jg6XDZib9IBnutBm2wZpbiuZ6d3xiV
+EtPYrxrG0JA2lHtyhNLPBaAl00EP5lbxRUQNztVQMQKBgQD7NdQfRH94ttKX5GzC
+o3rwBKXKGeaNFEpzVFSnoQ+zwFCBDdoRQ1a3rX7q+S1MXVP3W9h9EmbXusecSxN3
+5evJkwu/OOz/IScYXRl2zffRonceYtwo9P3CBq8Eng5NAaqvgbW2EIGM7tEQv016
+72qOsngZJFnRCZ4P4VASOgVpLQKBgQC6DvC849xN11Zo/WLoPCXBRpfrxhAo4a8w
+cDj10z+SWRCo40AgBUEyMx46E+hGetGC+T1tycaerK0M9+7bcnGQ0x3MePANnGvd
+g0F8d6d2kTagfOu/WShrOL2J5Txp5Tn3KmyCWi2w1edyysGS4iG4LHb0bmWhzYru
+nGSCgMQvJwKBgQCeTLNY6L8zAHIAiU8H8CC+Mw+OJXglGs43ksKtx06vxNZ2HJZ4
+Hmj84fWCeHbVElKhI11uozPvaaHzmVOxUE+e/GyAmYyu0ONj9Pbg6LXrgmdx3HZD
+0O4/YBrV3AvC9vPqGOC60/fvKWbRGNvoRgpt1YTcww1eLqNN+nuMoMdcGQKBgAur
+ykAfDv+3BU2ar2yf8UJZekgo6XSXC5U/RONut+snORtO/gPEMJ3EhR3hh818AM51
+cfwEDzh+3nAU0V/koukRxSnBYFWKPV3s0NvM6a1PWJzimSssnZN0QLd4sLx3y5YM
+jDf1Di6sjFMwEspy8uiJqYCVuDxZF2D2YHurNiM7AoGBAOOnjoQlos7p7PzhDjtR
+RrU4WZoxOtkO+2YqYPBgdOu5BZW43zth+w4BX2UUx3SDMqiKDFD+NjPggo+Kb3lF
+T5pWwUBN7V74SKSJbXqjs12fyiiJV0hwiJeNGP71334o5DoL6b9rCdiuzHcigfwk
+gRQFycx162oCXV9pPaTx6vXz
+-----END PRIVATE KEY-----`;
+const applicationId = `4fae40f2-e5f8-4275-9968-c45d7a03eed0`;
+const rcsAgent = 'VonageLondon-CSM';
+
 const { v4: uuidv4 } = require('uuid');
 
 const getUsers = async (globalState) => {
@@ -146,6 +174,7 @@ const timeNow = () => {
 };
 
 const generateToken = () => {
+    console.log('Generating token with App Id: ' + applicationId)
     return tokenGenerate(applicationId, privateKey, {
         exp: Math.floor(Date.now() / 1000) + 8 * 60 * 60, // 8 hours
     });
@@ -161,8 +190,14 @@ const checkRCS = async (to) => {
             'Content-Type': 'application/json',
         },
     });
-    console.log(response);
-
+        
+    // Convert the response to JSON
+    const data = await response.json();
+    
+    // Print the actual response data
+    console.log(data);
+    
+    //  Checks for 200
     if (response.ok) {
         return true;
     }

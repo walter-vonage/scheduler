@@ -1,0 +1,24 @@
+project:
+  name: eos-rcs-walter
+instance:
+  name: dev
+  runtime: nodejs16
+  region: aws.euw1
+  application-id: dd198654-3249-43fc-b751-222f5ffe7959
+  capabilities:
+    - messages-v1
+  entrypoint:
+    - node
+    - index.js
+  scaling:
+    min-scale: 1
+    max-scale: 3
+  secrets:
+    - apikey
+    - apiSecret
+
+debug:
+  name: debug
+  entrypoint:
+    - node
+    - index.js

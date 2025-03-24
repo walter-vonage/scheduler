@@ -207,6 +207,24 @@ app.get('/templates/new', utils.checkAuthenticated, async (req, res) => {
     res.render('templates/new', {});
 });
 
+/**
+ * Edits an existing template
+ * Mon 24 March
+ */
+app.get('/templates/edit/:id', utils.checkAuthenticated, async (req, res) => {
+    const templateId = req.params.id;
+    if (templateId) {
+        const template = await utils.getTemplateById(templateId, globalState);
+        if (template) {
+            console.log('Template to edit', template)
+            res.render('templates/edit', { template });
+        }        
+    } else {
+        res.render('templates/new', {});
+    }
+});
+
+
 // TEMPLATE VIEWS END
 
 // TEMPLATE API START
@@ -249,6 +267,22 @@ app.get('/support/:phone', async (req, res) => {
         })
     }
     const phone = req.params.phone;
+    const isRcsSupported = await utils.checkRCS( phone );
+    console.log(isRcsSupported);
+    res.send('okay');
+});
+
+/**
+ * Check if any given phone number supports RCS
+ * Open endpoint for test only
+ * TODO: REMOVE THIS ENDPOINT FOR PRODUCTION
+ */
+app.get('/rcs/validate', async (req, res) => {
+    const phone = req.query.phone; // Get the value from the query string
+    if (!phone) {
+        return res.status(400).json({ error: "Phone number is required" });
+    }
+    console.log('Phone: ' + phone);
     const isRcsSupported = await utils.checkRCS( phone );
     console.log(isRcsSupported);
     res.send('okay');
@@ -299,6 +333,45 @@ app.post('/api/templates', utils.checkAuthenticated, async (req, res) => {
             }),
         });
         res.json({ created, newTemplate });
+    } else {
+        res.status(500).json({
+            success: false,
+            error: 'please provide at least a valid text and senderIdField and also an id in case of updating existing templates.',
+        });
+    }
+});
+
+
+/**
+ * Create a new template
+ * March 24
+ */
+app.put('/api/templates', utils.checkAuthenticated, async (req, res) => {
+    const { id, text, senderIdField, rcsEnabled } = req.body;
+    console.log('Data received', req.body)
+    if (id && text && senderIdField) {
+        const updatedAt = new Date().toISOString();
+
+        const templateExists = await utils.getTemplateById(id, globalState);
+        if (!templateExists) {
+            return res.status(500).json({
+                success: false,
+                error: 'Template ID does not exist',
+            });
+        }
+
+        const updatedTemplate = {
+            id,
+            text,
+            senderIdField,
+            rcsEnabled,
+            updatedAt,
+        }
+        await globalState.hset(TEMPLATES_TABLENAME, {
+            [id]: JSON.stringify(updatedTemplate),
+        });
+        res.json({ success: true, updated: true, updatedTemplate });
+
     } else {
         res.status(500).json({
             success: false,

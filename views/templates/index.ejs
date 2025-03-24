@@ -9,6 +9,9 @@
         integrity="sha384-iYQeCzEYFbKjA/T2uDLTpkwGzCiq6soy8tYaI1GyVh/UjpbCx/TYkiZhlZB6+fzT" crossorigin="anonymous" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.14.1/moment.min.js"></script>
     <script>
+        function onEdit(id) {
+            window.location.href = '/templates/edit/' + id;
+        }
         function onDelete(id) {
             // Are you sure prompt
             if (
@@ -71,7 +74,8 @@
                                     <div class="card-text mt-3">
                                         <a href="#" class="btn btn-outline-danger btn-sm"
                                             onclick="onDelete('<%= template.id %>')">Delete</a>
-                                        <a href="#" class="btn btn-outline-primary btn-sm disabled">Edit</a>
+                                        <a href="#" class="btn btn-outline-primary btn-sm"
+                                            onclick="onEdit('<%= template.id %>')">Edit</a>
                                     </div>
                                 </div>
                                 <div class="card-footer">
