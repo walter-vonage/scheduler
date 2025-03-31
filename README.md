@@ -26,6 +26,29 @@ You can directly send a ```POST``` reques to  ```/api/messages/send``` with the 
 1. Run `npm install`
 2. Run `vcr configure` where you will be asked to set a Vonage apikey and secret.
 3. Create a `vcr.yml` file as per `vcr-sample.yml`
+4. Environment variables inside `vcr.yml`
+    In order to send Viber messages, include your VIBER SERVICE ID
+    ```
+project:
+    name: eos-rcs
+instance:
+    name: dev
+    runtime: nodejs18
+    region: aws.euw1
+    application-id: dd198654-3249-43fc-b751-222f5ffe7959
+    environment:
+        - name: VIBER_SERVICE_MESSAGE_ID
+            value: "XXXX"
+    entrypoint:
+        - node
+        - index.js
+debug:
+    application-id: dd198654-3249-43fc-b751-222f5ffe7959
+    entrypoint:
+        - node
+        - index.js
+    preserve-data: true
+    ```
 
 ## Run the project
 You will deploy this code in VCR. You can run in **debug** or **prod** mode. 

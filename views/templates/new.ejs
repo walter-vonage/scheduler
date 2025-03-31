@@ -9,8 +9,11 @@
         integrity="sha384-iYQeCzEYFbKjA/T2uDLTpkwGzCiq6soy8tYaI1GyVh/UjpbCx/TYkiZhlZB6+fzT" crossorigin="anonymous" />
     <script>
         async function postFormDataAsJson({ url, formData }) {
+            //  Send the information and store remplate
             const plainFormData = Object.fromEntries(formData.entries());
             plainFormData.rcsEnabled = formData.get('rcsEnabled') === 'on'; // Convert checkbox value to boolean
+            plainFormData.viberEnabled = formData.get('viberEnabled') === 'on'; // Convert checkbox value to boolean
+            //  Convert to string JSON
             const formDataJsonString = JSON.stringify(plainFormData);
             const fetchOptions = {
                 method: 'POST',
@@ -20,6 +23,7 @@
                 },
                 body: formDataJsonString,
             };
+            //  Store
             const response = await fetch(url, fetchOptions);
             if (!response.ok) {
                 const errorMessage = await response.text();
@@ -37,10 +41,10 @@
                 const responseData = await postFormDataAsJson({ url, formData });
                 console.log({ responseData });
                 if (responseData.newTemplate) {
-                    alert('Created a new template!');
+                    alert('A new template was created!');
                     window.location.replace('/templates');
                 } else {
-                    alert('Failed creation. Please check your data.');
+                    alert('Creation failed. Please check your data.');
                 }
             } catch (error) {
                 console.error(error);
@@ -76,14 +80,20 @@
                     <div class="mb-3">
                         <label for="text" class="form-label">SMS Text</label>
                         <textarea class="form-control" id="text" name="text" aria-describedby="textHelp" rows="3"></textarea>
-                        <div class="mt-3 mb-2">
+                        <div class="mt-3">
                             <div class="form-check">
                                 <input class="form-check-input" type="checkbox" id="rcsEnabled" name="rcsEnabled" />
                                 <label class="form-check-label" for="rcsEnabled"> RCS enabled </label>
                             </div>
                         </div>
+                        <div class="mt-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="viberEnabled" name="viberEnabled" />
+                                <label class="form-check-label" for="viberEnabled"> Viber enabled </label>
+                            </div>
+                        </div>
 
-                        <div id="textHelp" class="form-text">
+                        <div id="textHelp" class="mt-3 form-text">
                             This is the complete SMS content. It can reference CSV fields, which are then automatically populated for each user.<br />
                             References to CSV fields are inserted using curly brackets in the following format: <code>{{ COLUMN_NAME }}</code><br />
                             The capitalization of column names should be observed.

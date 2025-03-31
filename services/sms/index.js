@@ -52,6 +52,7 @@ const sendMessage = async (record, csvName, globalState) => {
         const template = await utils.getTemplateById(templateId, globalState);
         let text = template?.text;
         const rcsTemplate = template?.rcsEnabled;
+        const viberEnabled = template?.viberEnabled;
         const senderNumber = `${record[`${template?.senderIdField}`]?.replaceAll('+', '')}`;
         const to = `${record[CSV_PHONE_NUMBER_COLUMN_NAME]?.replaceAll('+', '')}`;
         const client_ref = record[CSV_ID_COLUMN_NAME];
@@ -72,7 +73,10 @@ const sendMessage = async (record, csvName, globalState) => {
                 text = text.replaceAll(array[0], record[`${array[1]}`]);
             });
         }
-        const result = await sendSmsOrRcs(senderNumber, to, text, api_url, client_ref, csvName, rateLimitAxios, rcsTemplate);
+        let channel = 'sms';
+        if (rcsTemplate) channel = 'rcs';
+        if (viberEnabled) channel = 'viber_service'
+        const result = await sendMessageViaAnyChannel(channel, senderNumber, to, text, api_url, client_ref = '', csvName = '', rateLimitAxios);
         return result;
     } catch(ex) {
         console.log('sendMessage error', ex)
@@ -108,39 +112,53 @@ const sendOptOutRcs = async (senderNumber, to) => {
     }
 };
 
-const sendSmsOrRcsLight = async (senderNumber, to, text, forceRcs) => {
-    return await sendSmsOrRcs(senderNumber, to, text, api_url, '', '', rateLimitAxios, forceRcs);
+const sendMessageViaAnyChannelLight = async (channel, senderNumber, to, text) => {
+    return await sendMessageViaAnyChannel(channel, senderNumber, to, text, api_url, null, null, rateLimitAxios);
 }
 
-const sendSmsOrRcs = async (senderNumber, to, text, apiUrl, campaignName, csvName, axios, rcsTemplate) => {
-    let channel = 'sms'; // Default channel is SMS
-    let from = senderNumber || 'test';
-    const headers = {
-        Authorization: `Bearer ${utils.generateToken()}`, // Use the JWT token parameter
-        'Content-Type': 'application/json',
-    };
-
-    if (rcsTemplate) {
-        const isRcsSupported = await utils.checkRCS( from, to );
-        console.log('sendSmsOrRcs - isRcsSupported', isRcsSupported)
-        channel = isRcsSupported ? 'rcs' : 'sms';
-    }
-
-    const body = {
-        message_type: 'text',
-        from: from,
-        channel: channel,
-        to: to,
-        text: text,
-        sms: { encoding_type: 'auto' },
-        client_ref: `${campaignName}-${csvName}`,
-    };
+const sendMessageViaAnyChannel = async (channel = 'sms', senderNumber, to, text, apiUrl, campaignName = '', csvName = '', axios) => {
+    
     const isBlackListed = await blackListService.isBlackListed(to);
     if (isBlackListed) {
         return {
             message_id: 'Blacklisted number - User sent STOP',
             channel: 'blacklist',
         };
+    }
+    
+    let from = senderNumber || 'test';
+
+    const headers = {
+        Authorization: `Bearer ${utils.generateToken()}`, // Use the JWT token parameter
+        'Content-Type': 'application/json',
+    };
+
+    if (channel == 'rcs') {
+        const isRcsSupported = await utils.checkRCS( from, to );
+        console.log('sendMessageViaAnyChannel - isRcsSupported', isRcsSupported)
+        channel = isRcsSupported ? 'rcs' : 'sms';
+    }
+
+    if (channel == 'viber_service') {
+        if (!process.env.VIBER_SERVICE_MESSAGE_ID) {
+            console.log('sendMessageViaAnyChannel - Unable to send Viber since NO VIBER SERVICE ID FOUND')
+            return null;
+        } else {
+            from = process.env.VIBER_SERVICE_MESSAGE_ID;
+        }
+    }
+
+    //  SMS or RCS or VIBER
+    let body = {
+        message_type: 'text',
+        from,
+        channel,
+        to,
+        text,
+        sms: { 
+            encoding_type: 'auto' 
+        },
+        client_ref: `${campaignName || 'no-campaign'}-${csvName || 'no-csv'}`
     }
 
     try {
@@ -153,17 +171,17 @@ const sendSmsOrRcs = async (senderNumber, to, text, apiUrl, campaignName, csvNam
         console.error(error.response.data);
         if (error.response != null && error.response.status === 429) {
             console.log('Too many requests (429), retrying...');
-            // return sendSmsOrRcs(to, text, apiUrl, campaignName, csvName, axios, rcsTemplate);
         }
         return { ...error.response.data, channel };
-        // return Promise.reject(error);
     }
 };
 
+
+
 module.exports = {
-    sendSmsOrRcs,
     sendAllMessages,
     sendOptOutRcs,
     sendMessage,
-    sendSmsOrRcsLight,
+    sendMessageViaAnyChannel,
+    sendMessageViaAnyChannelLight,
 };

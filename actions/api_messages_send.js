@@ -5,7 +5,7 @@
  * {
  *      "message_type": "text",
  *      "templateId": number,
- *      "channel": "sms" | "rcs",
+ *      "channel": "sms" | "rcs" | "viber_service",
  *      "from": string,
  *      "to": string,
  *      "data": Array<{ string: string }>
@@ -47,8 +47,8 @@ async function action(req, res, globalState) {
             return;
         }
 
-        if (channel != "sms" && channel != "rcs") {
-            console.log('Channel must be sms or rcs');
+        if (channel != "sms" && channel != "rcs" && channel != 'viber_service') {
+            console.log('Channel must be sms, rcs or viber_service');
             returnInvalidInput(res);
             return;
         }
@@ -83,14 +83,10 @@ async function action(req, res, globalState) {
             text = text.replaceAll(array[0], record[array[1]] || ""); // Replace with value or empty string if undefined
         });
 
-        const templateIsRcs = template.rcsEnabled;
-        const forceRcs = (channel == 'rcs') ? true : false;
-        const useRcs = templateIsRcs || forceRcs;
-
+        console.log('Channel:' + channel)
         console.log('This is the text to send:' + text)
-        console.log('Use RCS:', useRcs)
 
-        const result = await sms.sendSmsOrRcsLight(from, to, text, useRcs);
+        const result = await sms.sendMessageViaAnyChannelLight(channel, from, to, text);
 
         console.log('Message sent', result)
         res.status(200).json(result)

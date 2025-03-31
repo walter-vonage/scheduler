@@ -16,8 +16,6 @@ const keepAlive = require('./services/keepalivescheduler');
 const utils = require('./utils');
 const initializePassport = require('./passport-strategy');
 const { default: axios } = require('axios');
-const blackListService = require('./services/blacklist');
-const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 
 // Serve static files from the 'public' directory
@@ -203,7 +201,6 @@ app.get('/templates/edit/:id', utils.checkAuthenticated, async (req, res) => {
     }
 });
 
-
 // TEMPLATE VIEWS END
 
 // TEMPLATE API START
@@ -270,18 +267,18 @@ app.get('/api/templates/:id', async (req, res) => {
  * Create a new template
  */
 app.post('/api/templates', utils.checkAuthenticated, async (req, res) => {
-    const { id, text, senderIdField, rcsEnabled } = req.body;
+    const { id, text, senderIdField, rcsEnabled, viberEnabled } = req.body;
     let newTemplate;
     const updatedAt = new Date().toISOString();
     if (id && text && senderIdField) {
-        newTemplate = { id, text, senderIdField, rcsEnabled };
+        newTemplate = { id, text, senderIdField, rcsEnabled, viberEnabled };
         const created = await globalState.hset(TEMPLATES_TABLENAME, {
-            [id]: JSON.stringify({ id, text, senderIdField, updatedAt, rcsEnabled }),
+            [id]: JSON.stringify({ id, text, senderIdField, updatedAt, rcsEnabled, viberEnabled }),
         });
         res.json({ created, newTemplate });
     } else if (!id && text && senderIdField) {
         let id = uuid();
-        newTemplate = { id, text, senderIdField, rcsEnabled };
+        newTemplate = { id, text, senderIdField, rcsEnabled, viberEnabled };
         const created = await globalState.hset(TEMPLATES_TABLENAME, {
             [id]: JSON.stringify({
                 id,
@@ -289,6 +286,7 @@ app.post('/api/templates', utils.checkAuthenticated, async (req, res) => {
                 senderIdField,
                 updatedAt,
                 rcsEnabled,
+                viberEnabled,
             }),
         });
         res.json({ created, newTemplate });
@@ -302,11 +300,11 @@ app.post('/api/templates', utils.checkAuthenticated, async (req, res) => {
 
 
 /**
- * Create a new template
+ * Update existing template
  * March 24
  */
 app.put('/api/templates', utils.checkAuthenticated, async (req, res) => {
-    const { id, text, senderIdField, rcsEnabled } = req.body;
+    const { id, text, senderIdField, rcsEnabled, viberEnabled } = req.body;
     console.log('Data received', req.body)
     if (id && text && senderIdField) {
         const updatedAt = new Date().toISOString();
@@ -324,6 +322,7 @@ app.put('/api/templates', utils.checkAuthenticated, async (req, res) => {
             text,
             senderIdField,
             rcsEnabled,
+            viberEnabled,
             updatedAt,
         }
         await globalState.hset(TEMPLATES_TABLENAME, {
@@ -343,12 +342,22 @@ app.put('/api/templates', utils.checkAuthenticated, async (req, res) => {
  * Delete a template by ID
  */
 app.delete('/api/templates/:id', utils.checkAuthenticated, async (req, res) => {
-    const { id } = req.params;
-    if (!id) {
-        return res.status(404).json({ success: false, error: 'please provide a valid id' });
+    try {
+        //  Just for debug reasons
+        const allTemplates = await globalState.hgetall(TEMPLATES_TABLENAME);
+        console.log('Current keys in TEMPLATES:', Object.keys(allTemplates));
+        //  Get the ID to delete
+        const { id } = req.params;
+        if (!id) {
+            return res.status(404).json({ success: false, error: 'please provide a valid id' });
+        }
+        const deleted = await globalState.hdel(TEMPLATES_TABLENAME, [id.toString()]);
+        //  Respond
+        res.json({ success: true, deleted });
+    } catch(ex) {
+        console.log('Error deleting template:', ex.message)
+        res.json({ success: false, message: ex.message });
     }
-    const deleted = await globalState.hdel(TEMPLATES_TABLENAME, id);
-    res.json({ success: true, deleted });
 });
 
 /**
@@ -427,10 +436,10 @@ app.post('/scheduler', async (req, res) => {
 async function processAllFiles(files, assets, scheduler) {
     let interval;
     for (const filename of files) {
-        // toBeProcessed.forEach(async (filename) => {
         // process and send the file
         console.log('processing file' + filename);
         try {
+            //  Get the uploaded file
             const asset = await assets.getRemoteFile(filename).execute();
             console.log(JSON.stringify(asset.toString()));
             records = csvService.fromCsvSync(asset.toString(), {
@@ -447,7 +456,7 @@ async function processAllFiles(files, assets, scheduler) {
         }
         const secondsTillEndOfDay = utils.secondsTillEndOfDay();
         const secondsNeededToSend = parseInt((records.length - 1) / tps);
-        //only send if there's enough time till the end of the working day
+        //  Only send if there's enough time till the end of the working day
         if (secondsTillEndOfDay > secondsNeededToSend && utils.timeNow() >= 7) {
             try {
                 await globalState.set('processingState', true);
@@ -462,7 +471,7 @@ async function processAllFiles(files, assets, scheduler) {
                 const failedSummary = [
                     {
                         failed: failedResults.length,
-                        //I need to consider the last object of the array which contains the sms/rcs breakdown
+                        // I need to consider the last object of the array which contains the sms/rcs breakdown
                         successful: sendingResults.length - failedResults.length - 1,
                         smsSent: sendingResults.at(-1).smsCount,
                         rcsSent: sendingResults.at(-1).rcsCount,
@@ -495,14 +504,12 @@ async function processAllFiles(files, assets, scheduler) {
         } else if (secondsTillEndOfDay > 0 && secondsNeededToSend > secondsTillEndOfDay) {
             try {
                 console.log('there is no time to send all the records. Splitting file... ');
-
                 await globalState.set('processingState', true);
                 console.log('I have ' + secondsTillEndOfDay + ' to send');
                 //10 % security
                 const numberOfRecordsToSend = parseInt(tps * secondsTillEndOfDay * 0.9);
                 console.log('I can send ' + numberOfRecordsToSend);
-
-                //send the messages until the end of the allowed period
+                // send the messages until the end of the allowed period
                 try {
                     interval = setInterval(() => {
                         axios.get(`http://${process.env.INSTANCE_SERVICE_NAME}.neru/keepalive`);
@@ -526,7 +533,7 @@ async function processAllFiles(files, assets, scheduler) {
                         rcsSent: sendingResults.at(-1).rcsCount,
                     },
                 ];
-                //write the resuls file
+                // write the resuls file
                 if (failedResults.length > 0) {
                     const failedPath = filename.split('/')[2].replace('.csv', '-failed-1-output.csv');
                     await utils.writeResults(failedResults, failedPath, constants.failedResultsHeader);
@@ -536,10 +543,10 @@ async function processAllFiles(files, assets, scheduler) {
                 await utils.writeResults(failedSummary, path, constants.failedHeader);
                 await assets.uploadFiles([path], `output/`).execute();
 
-                //move the subfile that has been processed to the processed folder
+                // move the subfile that has been processed to the processed folder
                 const processedPath = filename.split('/')[2].replace('.csv', '-1-processed.csv');
                 await utils.moveFile(assets, processedPath, 'processed/', sendingRecords, filename);
-                //upload the pending records to be processed next morning
+                // upload the pending records to be processed next morning
                 const newFile = records.slice(numberOfRecordsToSend, records.length);
                 const pathToFile = filename.split('/')[2].replace('.csv', '-2.csv');
                 await utils.writeResults(newFile, pathToFile, constants.processedFileHeader);
@@ -549,12 +556,9 @@ async function processAllFiles(files, assets, scheduler) {
                 // await keepAlive.deleteKeepAlive();
             } catch (e) {
                 await globalState.set('processingState', false);
-                // await keepAlive.deleteKeepAlive();
             }
         }
     }
-    // save info that file was processed already
-    // });
 }
 
 /**
@@ -568,7 +572,6 @@ app.post('/checkandsend', async (req, res) => {
     try {
         // create a neru session
         const session = neru.createSession();
-
         const scheduler = new Scheduler(session);
         // init assets access
         const assets = new Assets(session);
@@ -579,7 +582,6 @@ app.post('/checkandsend', async (req, res) => {
         const assetlist = await assets.list(FILETYPES, false, 10).execute();
         console.log(assetlist);
         let toBeProcessed = [];
-
         if (!assetlist || !assetlist.res || assetlist.res.length <= 0) {
             console.warn('Found no new csv files in asset list.');
             return res.json({
@@ -600,9 +602,7 @@ app.post('/checkandsend', async (req, res) => {
                 console.log('I will not send since the file is already processed or there are files being processed');
             }
         });
-
         processAllFiles(toBeProcessed, assets, scheduler);
-
         res.sendStatus(200);
     } catch (e) {
         console.log('check and send error: ', e);
